@@ -1,17 +1,19 @@
 ---
 title: "R + Python in R Markdown with `reticulate`"
-output: html_notebook
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
-The [`reticulate`](https://rstudio.github.io/reticulate/) package allows you to use R and Python simultaneously, seamlessly translating your data and functions between both languages. This allows you to combine R and Python in your work.
+```{r r-setup, include=FALSE}
+library(reticulate)
+library(tidyverse)
+library(ggplot2)
+library(timetk)
+library(tidyquant)
+```
 
-For example, you might do your data wrangling and modeling in Python, but then use R for visualization.
-
-In this R Notebook, we'll show how you can use Python to get some stock data for 5 technology stocks, build a weighted portfolio and calculate returns, and then directly visualize the data in R with `ggplot2`.
-
-First, let's load our raw price data. We can do this in Python using the `DataReader` function from `pandas_datareader`, and we can run our Python code inside of a code chunk within this R Markdown doc.
-
-```{python}
+```{python py-setup, include=FALSE}
 # Some resources inspiring this demo:
 # - https://www.learndatasci.com/tutorials/python-finance-part-yahoo-finance-api-pandas-matplotlib/
 # - https://www.codingfinance.com/post/2018-04-05-portfolio-returns-py/
@@ -23,6 +25,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import date
 
+```
+
+
+The [`reticulate`](https://rstudio.github.io/reticulate/) package allows you to use R and Python simultaneously, seamlessly translating your data and functions between both languages. This allows you to combine R and Python in your work.
+
+For example, you might do your data wrangling and modeling in Python, but then use R for visualization.
+
+In this R Notebook, we'll show how you can use Python to get some stock data for 5 technology stocks, build a weighted portfolio and calculate returns, and then directly visualize the data in R with `ggplot2`.
+
+First, let's load our raw price data. We can do this in Python using the `DataReader` function from `pandas_datareader`, and we can run our Python code inside of a code chunk within this R Markdown doc.
+
+```{python}
 # First define our 5 tech stocks:
 tickers = ['AAPL', 'AMZN', 'GOOG', 'NFLX', 'TSLA']
 
@@ -103,12 +117,6 @@ To access our pandas dataframes from our Python environment, all we have to do i
 We can easily build the same histogram we just made in Python with `matplotlib` but with R and `ggplot2`. We'll also add some vertical lines to indicate the mean and +/- 1 SD.
 
 ```{r}
-library(reticulate)
-library(tidyverse)
-library(ggplot2)
-library(timetk)
-library(tidyquant)
-
 py$portfolio_returns %>% 
   ggplot(aes(x = returns)) +
   geom_histogram(bins = 100) +
