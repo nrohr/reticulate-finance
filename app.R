@@ -15,10 +15,6 @@ library(DT)
 library(reticulate)
 library(rtweet)
 library(plotly)
-library(promises)
-library(future)
-
-plan(multiprocess)
 
 source_python("get_stock_data.py")
 source_python("predict.py")
