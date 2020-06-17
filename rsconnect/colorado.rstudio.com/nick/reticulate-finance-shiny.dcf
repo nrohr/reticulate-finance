@@ -1,0 +1,13 @@
+name: reticulate-finance-shiny
+title: reticulate-finance-shiny
+username: nick
+account: nick
+server: colorado.rstudio.com
+hostUrl: https://colorado.rstudio.com/rsc/__api__
+appId: 6710
+bundleId: 38542
+url: https://colorado.rstudio.com/rsc/content/6710/
+when: 1592398494.74225
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md|reticulate_rmarkdown.Rmd|rtweet.R

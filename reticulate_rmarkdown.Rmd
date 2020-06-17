@@ -1,0 +1,153 @@
+---
+title: "R + Python in R Markdown with `reticulate`"
+output: html_notebook
+---
+
+The [`reticulate`](https://rstudio.github.io/reticulate/) package allows you to use R and Python simultaneously, seamlessly translating your data and functions between both languages. This allows you to combine R and Python in your work.
+
+For example, you might do your data wrangling and modeling in Python, but then use R for visualization.
+
+In this R Notebook, we'll show how you can use Python to get some stock data for 5 technology stocks, build a weighted portfolio and calculate returns, and then directly visualize the data in R with `ggplot2`.
+
+First, let's load our raw price data. We can do this in Python using the `DataReader` function from `pandas_datareader`, and we can run our Python code inside of a code chunk within this R Markdown doc.
+
+```{python}
+# Some resources inspiring this demo:
+# - https://www.learndatasci.com/tutorials/python-finance-part-yahoo-finance-api-pandas-matplotlib/
+# - https://www.codingfinance.com/post/2018-04-05-portfolio-returns-py/
+
+from pandas_datareader import data
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import pandas as pd
+from datetime import date
+
+# First define our 5 tech stocks:
+tickers = ['AAPL', 'AMZN', 'GOOG', 'NFLX', 'TSLA']
+
+# Get data starting in 2010 and ending today
+start_date = '2010-01-01'
+end_date = date.today()
+
+# User pandas_reader.data.DataReader to load the desired data from Yahoo Finance
+stock_data = data.DataReader(tickers, 'yahoo', start_date, end_date)
+
+# Get the Adjusted Close columns and store it in a new object, prices
+prices = stock_data['Adj Close']
+
+prices.head()
+```
+
+
+For this exercise, we've chosen 5 tech stocks (Apple, Amazon, Google, Netflix, and Tesla) and have obtained the adjusted closing price from Yahoo Finance starting January 2010. (Note Tesla does not have any price data until its IPO in June 2010).
+
+Our next step is to calculate the daily returns for each stock.
+
+```{python}
+# Calculate daily returns for each stock
+returns = prices.pct_change(1)
+
+# Fill missing values with 0
+returns = returns.fillna(0)
+
+returns.head()
+```
+
+
+Now that we have our daily returns, we will choose our weights for our portfolio. For this exercise, we'll choose basic weights of 30% for `AAPL` and `AMZN`, 25% for `GOOG`, 10% for `NFLX`, and 5% for `TSLA`.
+
+```{python}
+# Assign weights
+weights = [0.3, 0.3, 0.25, 0.10, 0.05]
+
+# Calculate individually weighted returns
+weighted_returns = (weights * returns)
+
+weighted_returns.head()
+```
+
+
+Our final step is to sum our weighted returns for each stock across columns to calculate the daily returns for our portfolio.
+
+```{python}
+# Sum across columns to calculate portfolio returns
+portfolio_returns = weighted_returns.sum(axis=1).to_frame()
+
+# Move Date index to column and rename returns column
+portfolio_returns = portfolio_returns.reset_index()
+portfolio_returns.rename(columns={0:'returns'}, inplace = True)
+
+portfolio_returns.head()
+```
+
+
+Great! Let's take a look at the distribution of our returns. RStudio and R Markdown / R Notebooks include support for common Python visualization libraries like `matplotlib` and `seaborn`.
+
+```{python}
+fig = plt.figure()
+ax1 = fig.add_axes([0.1,0.1,0.8,0.8])
+ax1.hist(portfolio_returns['returns'], bins = 100)
+ax1.set_xlabel('Portfolio returns')
+ax1.set_ylabel("Freq")
+plt.show(); 
+```
+
+
+## Combining R and Python
+
+So far, we've learned how to get our stock data and built a simple portfolio in Python. Now let's visualize our data in R using `ggplot2`.
+
+To access our pandas dataframes from our Python environment, all we have to do is add `py$` in front of whatever object we want to access from our Python environment.
+
+We can easily build the same histogram we just made in Python with `matplotlib` but with R and `ggplot2`. We'll also add some vertical lines to indicate the mean and +/- 1 SD.
+
+```{r}
+library(reticulate)
+library(tidyverse)
+library(ggplot2)
+library(timetk)
+library(tidyquant)
+
+py$portfolio_returns %>% 
+  ggplot(aes(x = returns)) +
+  geom_histogram(bins = 100) +
+  geom_vline(xintercept = sd(py$portfolio_returns$returns), color = "blue") +
+  geom_vline(xintercept = -sd(py$portfolio_returns$returns), color = "blue") +
+  geom_vline(xintercept = mean(py$portfolio_returns$returns), color = "red")
+```
+
+
+Let's make one more plot. This time, we'll use R to calculate the cumulative returns for each stock and for our portfolio as a whole, then we'll plot those time series to see how our stocks and portfolio has performed over time.
+
+```{r}
+# Create a function for calculating a 30-day rolling average, to be used on our portfolio returns
+roll_avg <- slidify(.f = AVERAGE, .period = 30, .align = "center", .partial = TRUE)
+
+# Add a column for cumulative returns to our portfolio data, and another column for a 30-day rolling average of those returns
+port_returns <- py$portfolio_returns %>% 
+  mutate(cr = cumprod(1 + returns)) %>% 
+  mutate(cumulative_returns = cr - 1) %>% 
+  mutate(date = as.Date(Date)) %>% 
+  mutate(rolling_avg = roll_avg(cumulative_returns))
+
+# Do the same for our stock returns, then plot both data sets using geom_line()
+returns_plot <- 
+  py$returns %>% 
+  rownames_to_column("date") %>% 
+  pivot_longer(-date, "stock", values_to = "returns") %>% 
+  group_by(stock) %>% 
+  slice(-1) %>% 
+  mutate(cr = cumprod(1 + returns)) %>% 
+  mutate(cumulative_returns = cr - 1) %>% 
+  mutate(date = as.Date(date)) %>% 
+  ggplot() +
+  geom_line(aes(x = date, y = cumulative_returns, group = stock, color = stock)) +
+  scale_x_date(date_breaks = "year", date_labels = "%Y") +
+  labs(y = "cumulative returns", caption = "Black line represents 30-day moving avg. of weighted portfolio") +
+  geom_line(data = port_returns, aes(x = date, y = rolling_avg))
+  
+
+returns_plot
+```
+
