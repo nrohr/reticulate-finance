@@ -134,7 +134,7 @@ server <- function(input, output) {
     
     output$anomalyTable <- renderDataTable({
         stockReturns() %>% 
-            tk_anomaly_diagnostics(date, returns) %>% 
+            tk_anomaly_diagnostics(date, returns, .alpha = input$alpha) %>% 
             filter(anomaly == "Yes") %>% 
             select(date, observed, anomaly) %>% 
             arrange(-abs(observed))
